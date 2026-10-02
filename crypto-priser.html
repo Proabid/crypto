@@ -679,49 +679,51 @@ function tvSymbolFor(c){
   if(c.kr)  return "KRAKEN:" + c.kr.replace("/","");
   return "CRYPTO:" + c.sym + "USD";
 }
+function tvWidgetUrl(sym, interval){
+  const q = new URLSearchParams({
+    frameElementId: "tradingview_" + (curChartSym || "c"),
+    symbol: sym,
+    interval: interval,
+    hidesidetoolbar: 0,
+    symboledit: 1,
+    saveimage: 1,
+    toolbarbg: "#131722",
+    studies: "[]",
+    theme: "dark",
+    style: "1",
+    locale: "sv",
+    support_host: "https://www.tradingview.com",
+    autosize: 1
+  });
+  return "https://s.tradingview.com/widgetembed/?" + q.toString();
+}
 function renderChart(){
   if(!curChartSym) return;
   const c = COINS.find(x=>x.sym===curChartSym);
   const sym = tvSymbolFor(c || {sym:curChartSym});
   const container = document.getElementById("tv-chart");
+  clearTimeout(tvTimer);
+  let loaded = false;
   container.innerHTML = "";
-  const twc = document.createElement("div");
-  twc.className = "tradingview-widget-container";
-  const widget = document.createElement("div");
-  widget.className = "tradingview-widget-container__widget";
-  const sc = document.createElement("script");
-  sc.type = "text/javascript";
-  sc.src = "https://s3.tradingview.com/external-embedding/embed-widget-advancedchart.js";
-  sc.async = true;
-  sc.textContent = JSON.stringify({
-    autosize: true,
-    symbol: sym,
-    interval: TV_INTERVAL[curChartPeriod] || "D",
-    timezone: "exchange",
-    theme: "dark",
-    style: "1",
-    locale: "sv",
-    allow_symbol_change: true,
-    hide_side_toolbar: false,
-    withdateranges: true,
-    studies: ["MASimple@tv-basicstudies"],
-    support_host: "https://www.tradingview.com"
-  });
+
+  const box = document.createElement("div");
+  box.style.cssText = "width:100%;height:450px;position:relative";
+  const ifr = document.createElement("iframe");
+  ifr.src = tvWidgetUrl(sym, TV_INTERVAL[curChartPeriod] || "D");
+  ifr.width = "100%"; ifr.height = "100%"; ifr.frameBorder = "0";
+  ifr.style.border = "0"; ifr.title = "TradingView"; ifr.allowFullscreen = true;
+  ifr.addEventListener("load", ()=>{ loaded = true; });
+  ifr.addEventListener("error", ()=>{ svgFallback(); });
+  box.appendChild(ifr);
+  container.appendChild(box);
+
   const copy = document.createElement("div");
   copy.className = "tradingview-widget-copyright";
   copy.innerHTML = '<a href="https://sv.tradingview.com" rel="noopener" target="_blank">Kurser från TradingView</a>';
-  twc.appendChild(widget);
-  twc.appendChild(sc);
-  twc.appendChild(copy);
-  container.appendChild(twc);
+  container.appendChild(copy);
+
   document.getElementById("msrc").textContent = "TradingView · " + sym;
-  clearTimeout(tvTimer);
-  tvTimer = setTimeout(()=>{
-    if(!curChartSym) return;
-    const w = document.querySelector("#tv-chart .tradingview-widget-container__widget");
-    const rendered = document.querySelector("#tv-chart iframe") || (w && w.children.length>0);
-    if(!rendered) svgFallback();
-  }, 6500);
+  tvTimer = setTimeout(()=>{ if(curChartSym && !loaded) svgFallback(); }, 9000);
 }
 async function svgFallback(){
   const container = document.getElementById("tv-chart");
